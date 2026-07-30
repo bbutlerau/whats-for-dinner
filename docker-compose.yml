@@ -1,0 +1,29 @@
+services:
+  mealplanner:
+    build: .
+    container_name: mealplanner
+    restart: unless-stopped
+    ports:
+      # Bound to all interfaces so Tailscale can reach it. If you ever expose
+      # this host to the open internet, put a reverse proxy with auth in front
+      # first — the app itself has no login.
+      - "8000:8000"
+    volumes:
+      # Named volume keeps the SQLite database across rebuilds.
+      - mealplanner-data:/data
+    environment:
+      DATABASE_URL: sqlite:////data/mealplanner.db
+    env_file:
+      # Optional. Holds the Paprika credentials if you use the sync path.
+      # Create it from .env.example; the app runs fine without it.
+      - path: .env
+        required: false
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  mealplanner-data:

@@ -1,0 +1,372 @@
+/* Phone-first stylesheet. Hand-written rather than a framework: the whole UI is
+   four screens, and a CSS file this size is easier to reason about than a
+   utility-class vocabulary — plus it keeps the no-build-step promise.
+
+   The status colours are the one part that matters most. They're paired with
+   text on every screen ("Got everything", "Need onion"), because colour alone
+   would be useless to anyone colourblind and unreadable in bright sunlight in a
+   supermarket. */
+
+:root {
+  --bg: #f7f6f3;
+  --card: #ffffff;
+  --ink: #1d2321;
+  --ink-soft: #5f6b66;
+  --line: #e0ddd6;
+  --accent: #1f6f43;
+
+  --green: #1f7a45;
+  --green-bg: #e6f4ea;
+  --amber: #9a6600;
+  --amber-bg: #fdf3dd;
+  --red: #a72b25;
+  --red-bg: #fbeae8;
+  --grey: #6b7472;
+  --grey-bg: #f0efeb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14181a;
+    --card: #1d2325;
+    --ink: #e9eceb;
+    --ink-soft: #a3aeaa;
+    --line: #2e3639;
+    --accent: #57bd85;
+
+    --green: #6cd394;
+    --green-bg: #17301f;
+    --amber: #e0b054;
+    --amber-bg: #322710;
+    --red: #f0918a;
+    --red-bg: #351a18;
+    --grey: #97a3a0;
+    --grey-bg: #21282a;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+main { padding: 1rem; max-width: 46rem; margin: 0 auto; }
+
+/* --- Chrome ------------------------------------------------------------- */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: 0.6rem 1rem;
+}
+
+.brand {
+  display: block;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.topbar nav {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  /* Scrollable rather than wrapping, so the bar keeps one line on a phone. */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.topbar nav::-webkit-scrollbar { display: none; }
+
+.topbar nav a {
+  flex: 0 0 auto;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  font-size: 0.92rem;
+}
+.topbar nav a.on { background: var(--accent); color: #fff; }
+
+footer {
+  padding: 1.5rem 1rem 2.5rem;
+  text-align: center;
+  font-size: 0.9rem;
+}
+footer a, .link, a { color: var(--accent); }
+
+h1 { font-size: 1.3rem; margin: 0; }
+h2 { font-size: 1rem; margin: 1.4rem 0 0.5rem; color: var(--ink-soft); }
+
+.hint { color: var(--ink-soft); font-size: 0.9rem; }
+.empty {
+  background: var(--card);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  padding: 1rem;
+  color: var(--ink-soft);
+}
+.notice {
+  background: var(--green-bg);
+  border-left: 4px solid var(--green);
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+}
+
+.weeknav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.arrow {
+  font-size: 1.6rem;
+  line-height: 1;
+  text-decoration: none;
+  padding: 0 0.5rem;
+}
+
+/* --- Buttons ------------------------------------------------------------ */
+
+button, .button {
+  font: inherit;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  padding: 0.5rem 0.8rem;
+  /* 44px minimum touch target — this gets tapped one-handed in a kitchen. */
+  min-height: 2.75rem;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+button.primary, .button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.link {
+  border: none;
+  background: none;
+  color: var(--accent);
+  padding: 0.35rem 0;
+  min-height: auto;
+}
+button.link.warn { color: var(--red); }
+button:disabled, select:disabled { opacity: 0.5; cursor: not-allowed; }
+
+input[type="text"], input[type="number"], select, textarea {
+  font: inherit;
+  width: 100%;
+  padding: 0.6rem;
+  min-height: 2.75rem;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--ink);
+}
+
+/* --- Week grid ---------------------------------------------------------- */
+
+.week { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+
+.night {
+  display: flex;
+  gap: 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  /* The colour lives on a thick left edge: unmistakable when scanning the week,
+     without tinting the text underneath it. */
+  border-left: 6px solid var(--grey);
+  border-radius: 12px;
+  padding: 0.75rem;
+}
+.night.green { border-left-color: var(--green); background: var(--green-bg); }
+.night.amber { border-left-color: var(--amber); background: var(--amber-bg); }
+.night.red   { border-left-color: var(--red);   background: var(--red-bg); }
+.night.grey  { border-left-color: var(--grey);  background: var(--card); }
+.night.today { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.daylabel { flex: 0 0 2.6rem; text-align: center; }
+.dayname { display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--ink-soft); letter-spacing: 0.04em; }
+.daynum { display: block; font-size: 1.4rem; font-weight: 700; line-height: 1.1; }
+
+.mealbox { flex: 1 1 auto; min-width: 0; }
+.mealname { font-weight: 650; font-size: 1.05rem; }
+.meta { font-size: 0.85rem; color: var(--ink-soft); display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.night.red .status { color: var(--red); font-weight: 600; }
+.night.amber .status { color: var(--amber); font-weight: 600; }
+
+.missing {
+  margin: 0.4rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.missing li {
+  font-size: 0.78rem;
+  background: var(--card);
+  border: 1px solid var(--red);
+  color: var(--red);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+}
+
+.pick { display: flex; gap: 0.4rem; }
+.pick select { flex: 1 1 auto; }
+
+details summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 0.9rem;
+  margin-top: 0.4rem;
+  /* Comfortable tap target for the disclosure triangle. */
+  padding: 0.3rem 0;
+}
+details form { margin-top: 0.4rem; display: flex; gap: 0.4rem; align-items: center; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 1.2rem; }
+.chip { font-size: 0.78rem; padding: 0.2rem 0.6rem; border-radius: 999px; border: 1px solid var(--line); }
+.chip.green { background: var(--green-bg); color: var(--green); border-color: var(--green); }
+.chip.amber { background: var(--amber-bg); color: var(--amber); border-color: var(--amber); }
+.chip.red   { background: var(--red-bg);   color: var(--red);   border-color: var(--red); }
+.chip.grey  { background: var(--grey-bg);  color: var(--grey); }
+
+/* --- Meals & form ------------------------------------------------------- */
+
+.meallist, .pantrylist, .shoplist { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+
+.mealrow, .pantryitem, .shopitem {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+}
+.mealrow { border-left: 5px solid var(--grey); }
+.mealrow.green { border-left-color: var(--green); }
+.mealrow.amber { border-left-color: var(--amber); }
+.mealrow.red   { border-left-color: var(--red); }
+.mealrow-main { flex: 1 1 auto; min-width: 0; }
+.missingline { color: var(--red); }
+
+.mealform { display: grid; gap: 0.9rem; }
+.mealform label { display: grid; gap: 0.3rem; font-size: 0.9rem; color: var(--ink-soft); }
+.mealform fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 0.9rem; }
+.mealform legend { padding: 0 0.4rem; font-size: 0.9rem; color: var(--ink-soft); }
+
+.ingredient-row { display: flex; gap: 0.4rem; margin-bottom: 0.4rem; }
+.ingredient-row input { flex: 1 1 auto; }
+.ingredient-row .remove { flex: 0 0 2.75rem; color: var(--ink-soft); font-size: 1.2rem; }
+.addrow { width: 100%; border-style: dashed; color: var(--accent); }
+
+.actions { display: flex; align-items: center; gap: 0.8rem; }
+.danger { margin-top: 2rem; }
+
+/* --- Pantry & shopping -------------------------------------------------- */
+
+.aisle { margin-top: 1rem; }
+.tick button { border: none; background: none; font-size: 1.35rem; padding: 0; min-width: 2.75rem; }
+.pantryitem .name, .shopitem .name { flex: 1 1 auto; min-width: 0; }
+.pantryitem.have .name { color: var(--ink-soft); }
+.pantryitem.merged .name { color: var(--ink-soft); font-size: 0.9rem; }
+
+.badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--grey-bg);
+  color: var(--ink-soft);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  margin-left: 0.35rem;
+}
+
+.amount { color: var(--ink-soft); font-size: 0.88rem; margin-left: 0.4rem; }
+.for { font-size: 0.75rem; color: var(--ink-soft); text-align: right; max-width: 40%; }
+
+/* The ⋯ menu is a popover rather than an inline expansion. Expanding in place
+   put its contents into the row's flex layout, where they overlapped the item
+   name; anchoring the panel absolutely takes it out of flow entirely, so the row
+   underneath never moves or gets squashed. */
+.itemmenu { flex: 0 0 auto; position: relative; }
+.itemmenu summary {
+  list-style: none;
+  font-size: 1.3rem;
+  line-height: 1;
+  /* Wide enough to hit reliably with a thumb. */
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  color: var(--ink-soft);
+}
+.itemmenu summary::-webkit-details-marker { display: none; }
+.itemmenu[open] summary { color: var(--accent); }
+
+.menupanel {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  z-index: 20;
+  /* Never wider than the viewport, however long the ingredient names are. */
+  width: max-content;
+  max-width: min(20rem, calc(100vw - 2.5rem));
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.18);
+  padding: 0.5rem 0.75rem 0.75rem;
+  display: grid;
+  gap: 0.5rem;
+  text-align: left;
+}
+.menutitle {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+/* Undo the global `details form` flex rule inside the panel: these want to
+   stack, not sit on one line. */
+.menupanel form { display: block; margin: 0; }
+
+.mergeform { display: grid; gap: 0.35rem; }
+.mergeform label { font-size: 0.85rem; color: var(--ink-soft); }
+.mergeform select { width: 100%; }
+
+/* The last rows in a list would otherwise open their panel off the bottom of
+   the page; flipping it upwards keeps it on screen. */
+.pantrylist > li:nth-last-child(-n + 2) .menupanel {
+  top: auto;
+  bottom: calc(100% + 0.25rem);
+}
+
+.copybar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin: 0.8rem 0; }
+.copystatus { font-size: 0.85rem; color: var(--green); }
+.rawlist textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
+
+.staples { opacity: 0.85; }
+
+/* On a wider screen the week reads better as two columns. */
+@media (min-width: 40rem) {
+  .week { grid-template-columns: 1fr 1fr; }
+  .topbar { display: flex; align-items: center; gap: 1.5rem; }
+  .topbar nav { margin-top: 0; }
+}

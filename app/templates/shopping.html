@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% set active = 'shopping' %}
+{% block title %}Shopping · Meal Planner{% endblock %}
+
+{% block content %}
+<div class="weeknav">
+  <h1>Shopping · {{ week_label }}</h1>
+  <a class="button" href="/?start={{ week_start }}">← Week</a>
+</div>
+
+{% if list.is_empty %}
+  <p class="empty">
+    Nothing to buy for this week — either everything's in the pantry, or there's
+    nothing planned yet.
+  </p>
+{% else %}
+  <p class="hint">
+    {{ list.total_items }} thing{{ '' if list.total_items == 1 else 's' }} to get.
+    Tick as you go — anything you tick is added to the pantry, so the week's colours
+    update straight away.
+  </p>
+
+  <div class="copybar">
+    <button type="button" id="copy-listonic" class="primary">📋 Copy for Listonic</button>
+    <span id="copy-status" class="copystatus" role="status"></span>
+  </div>
+  <details class="rawlist">
+    <summary>Show as plain text</summary>
+    <textarea id="listonic-text" readonly rows="{{ list.total_items + 1 }}">{{ listonic_text }}</textarea>
+    <p class="hint">
+      Paste this into Listonic's add-items box — it accepts one item per line, so the
+      whole list goes in at once. (Listonic has no public API, so this is the reliable way in.)
+    </p>
+  </details>
+
+  {% for group in list.needed %}
+    <section class="aisle">
+      <h2>{{ group.aisle.emoji }} {{ group.aisle.label }}</h2>
+      <ul class="shoplist">
+        {% for entry in group.entries %}
+          <li class="shopitem">
+            <form method="post" action="/shopping/{{ entry.pantry_item_id }}/bought" class="tick">
+              <input type="hidden" name="start" value="{{ week_start }}">
+              <button type="submit" aria-label="Got {{ entry.display_name }}">⬜</button>
+            </form>
+            <span class="name">
+              {{ entry.display_name }}
+              {% if entry.amount_text %}<span class="amount">{{ entry.amount_text }}</span>{% endif %}
+            </span>
+            <span class="for">{{ entry.meal_text }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endfor %}
+
+  {% if list.staples %}
+    <section class="aisle staples">
+      <h2>🧂 Worth checking</h2>
+      <p class="hint">Staples. These don't affect the calendar colours — just glance in the cupboard.</p>
+      <ul class="shoplist">
+        {% for entry in list.staples %}
+          <li class="shopitem">
+            <form method="post" action="/shopping/{{ entry.pantry_item_id }}/bought" class="tick">
+              <input type="hidden" name="start" value="{{ week_start }}">
+              <button type="submit" aria-label="Got {{ entry.display_name }}">⬜</button>
+            </form>
+            <span class="name">{{ entry.display_name }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  <script>
+    (function () {
+      const button = document.getElementById('copy-listonic');
+      const status = document.getElementById('copy-status');
+      const text = document.getElementById('listonic-text');
+      if (!button) return;
+
+      button.addEventListener('click', async function () {
+        try {
+          // The async clipboard API needs a secure context. Over Tailscale on
+          // plain HTTP that isn't guaranteed, so fall back to selecting the
+          // textarea and using the old execCommand path.
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text.value);
+          } else {
+            text.closest('details').open = true;
+            text.select();
+            document.execCommand('copy');
+          }
+          status.textContent = 'Copied — paste into Listonic';
+        } catch (err) {
+          status.textContent = 'Copy blocked — use "Show as plain text" below';
+        }
+        setTimeout(function () { status.textContent = ''; }, 4000);
+      });
+    })();
+  </script>
+{% endif %}
+{% endblock %}

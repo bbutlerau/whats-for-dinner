@@ -1,0 +1,32 @@
+# Secrets and local config — never commit these.
+.env
+.env.local
+*.key
+*.pem
+secrets/
+
+# Local application data. The SQLite database holds real meal and pantry data,
+# which is personal, so it stays out of the repo entirely.
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Paprika exports may contain your whole recipe collection.
+*.paprikarecipes
+*.paprikarecipe
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+uv.lock
+
+# Editors and OS noise
+.DS_Store
+.vscode/
+.idea/

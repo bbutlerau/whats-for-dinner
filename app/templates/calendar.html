@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% set active = 'calendar' %}
+{% block title %}Week of {{ week_label }} · Meal Planner{% endblock %}
+
+{% block content %}
+<div class="weeknav">
+  <a class="arrow" href="/?start={{ prev_week }}" aria-label="Previous week">‹</a>
+  <h1>{{ week_label }}</h1>
+  <a class="arrow" href="/?start={{ next_week }}" aria-label="Next week">›</a>
+</div>
+
+<p class="hint">
+  <a class="button" href="/shopping?start={{ week_start }}">🛒 Shopping list for this week</a>
+</p>
+
+{% if not meals %}
+  <p class="empty">
+    No meals yet. <a href="/meals/new">Add one by hand</a>, or
+    <a href="/import">import from Paprika</a>.
+  </p>
+{% endif %}
+
+<ul class="week">
+  {# One card per night. The status class drives the colour, which is the whole
+     point of this screen: green means cook it, red means shop first. #}
+  {% for night in nights %}
+    <li class="night {{ night.status.status }}{% if night.day == today %} today{% endif %}">
+      <div class="daylabel">
+        <span class="dayname">{{ night.day.strftime('%a') }}</span>
+        <span class="daynum">{{ night.day.day }}</span>
+      </div>
+
+      <div class="mealbox">
+        {% if night.is_planned %}
+          <div class="mealname">{{ night.meal.name }}</div>
+          <div class="meta">
+            {% if night.meal.prep_minutes %}<span class="time">⏱ {{ night.meal.prep_minutes }} min</span>{% endif %}
+            <span class="status">{{ night.status.summary }}</span>
+          </div>
+
+          {% if night.status.missing %}
+            <ul class="missing">
+              {% for name in night.status.missing %}<li>{{ name }}</li>{% endfor %}
+            </ul>
+          {% endif %}
+
+          <details>
+            <summary>Change</summary>
+            <form method="post" action="/plan/{{ night.day }}">
+              <input type="hidden" name="start" value="{{ week_start }}">
+              <select name="meal_id" required>
+                {% for meal in meals %}
+                  <option value="{{ meal.id }}" {% if meal.id == night.meal.id %}selected{% endif %}>{{ meal.name }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit">Save</button>
+            </form>
+            <form method="post" action="/plan/{{ night.day }}/clear">
+              <input type="hidden" name="start" value="{{ week_start }}">
+              <button type="submit" class="link">Clear this night</button>
+            </form>
+          </details>
+        {% else %}
+          <form method="post" action="/plan/{{ night.day }}" class="pick">
+            <input type="hidden" name="start" value="{{ week_start }}">
+            <select name="meal_id" required {% if not meals %}disabled{% endif %}>
+              <option value="" disabled selected>What's for dinner?</option>
+              {% for meal in meals %}
+                <option value="{{ meal.id }}">{{ meal.name }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" {% if not meals %}disabled{% endif %}>Add</button>
+          </form>
+        {% endif %}
+      </div>
+    </li>
+  {% endfor %}
+</ul>
+
+<p class="legend">
+  <span class="chip green">Got everything</span>
+  <span class="chip amber">Check staples</span>
+  <span class="chip red">Need to shop</span>
+  <span class="chip grey">Not planned</span>
+</p>
+{% endblock %}

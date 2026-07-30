@@ -1,0 +1,42 @@
+[project]
+name = "mealplanner"
+version = "0.1.0"
+description = "A simple weekly dinner calendar with pantry-aware colour coding and a Listonic-friendly shopping list."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sqlmodel>=0.0.22",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.17",
+    "pydantic-settings>=2.6",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008 flags function calls in argument defaults, which is exactly how FastAPI's
+# Depends() and Form() are meant to be used. It's a false positive for this whole
+# style of code rather than something to work around.
+ignore = ["B008"]

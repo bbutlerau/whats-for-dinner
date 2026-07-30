@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% set active = 'meals' %}
+{% block title %}Meals · Meal Planner{% endblock %}
+
+{% block content %}
+<div class="weeknav">
+  <h1>Meals</h1>
+  <a class="button" href="/meals/new">+ Add meal</a>
+</div>
+
+{% if not meals %}
+  <p class="empty">
+    Nothing saved yet. <a href="/meals/new">Type a meal in</a> — name, time, ingredients —
+    and it'll be there to pick every week after.
+  </p>
+{% endif %}
+
+<ul class="meallist">
+  {% for meal in meals %}
+    {% set status = statuses[meal.id] %}
+    <li class="mealrow {{ status.status }}">
+      <div class="mealrow-main">
+        <span class="mealname">{{ meal.name }}</span>
+        <span class="meta">
+          {% if meal.prep_minutes %}⏱ {{ meal.prep_minutes }} min · {% endif %}
+          {{ meal.ingredients | length }} ingredient{{ '' if meal.ingredients | length == 1 else 's' }}
+          {% if meal.source == 'paprika' %} · from Paprika{% endif %}
+        </span>
+        {% if status.missing %}
+          <span class="meta missingline">Need {{ status.missing | join(', ') }}</span>
+        {% endif %}
+      </div>
+      <a class="link" href="/meals/{{ meal.id }}/edit">Edit</a>
+    </li>
+  {% endfor %}
+</ul>
+{% endblock %}

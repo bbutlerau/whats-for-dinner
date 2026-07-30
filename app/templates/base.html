@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <!-- Phone-first: this gets used standing in a kitchen or a supermarket aisle. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1f6f43">
+  <title>{% block title %}Meal Planner{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>🍽️</text></svg>">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">🍽️ Meal Planner</a>
+    <nav>
+      <a href="/" {% if active == 'calendar' %}class="on"{% endif %}>Week</a>
+      <a href="/meals" {% if active == 'meals' %}class="on"{% endif %}>Meals</a>
+      <a href="/pantry" {% if active == 'pantry' %}class="on"{% endif %}>Pantry</a>
+      <a href="/shopping" {% if active == 'shopping' %}class="on"{% endif %}>Shopping</a>
+    </nav>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer>
+    <a href="/import">Import from Paprika</a>
+  </footer>
+</body>
+</html>

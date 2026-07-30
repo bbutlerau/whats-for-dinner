@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% set active = 'meals' %}
+{% block title %}{{ heading }} · Meal Planner{% endblock %}
+
+{% block content %}
+<h1>{{ heading }}</h1>
+
+<form method="post" action="{% if meal %}/meals/{{ meal.id }}{% else %}/meals{% endif %}" class="mealform">
+  <label>
+    Meal name
+    <input type="text" name="name" required autocomplete="off"
+           value="{{ meal.name if meal else '' }}" placeholder="Chicken stir fry">
+  </label>
+
+  <label>
+    Prep + cook time (minutes)
+    <input type="number" name="prep_minutes" min="0" inputmode="numeric"
+           value="{{ meal.prep_minutes if meal and meal.prep_minutes else '' }}" placeholder="30">
+  </label>
+
+  <fieldset>
+    <legend>Ingredients</legend>
+    <p class="hint">
+      One per row, written how you'd say it — "2 cloves garlic", "400g tin of tomatoes",
+      "1 tsp dried oregano". Fresh and dried are tracked separately, so it's worth saying which.
+    </p>
+
+    {# Rows are added and removed client-side; each row posts the same field name,
+       so the server receives them as a list in order. #}
+    <div id="ingredient-rows">
+      {% for line in ingredients %}
+        <div class="ingredient-row">
+          <input type="text" name="ingredient" value="{{ line }}" autocomplete="off">
+          <button type="button" class="remove" aria-label="Remove ingredient">×</button>
+        </div>
+      {% endfor %}
+      {% if not ingredients %}
+        <div class="ingredient-row">
+          <input type="text" name="ingredient" placeholder="500g chicken thigh" autocomplete="off">
+          <button type="button" class="remove" aria-label="Remove ingredient">×</button>
+        </div>
+      {% endif %}
+    </div>
+
+    <button type="button" id="add-ingredient" class="addrow">+ Add ingredient</button>
+  </fieldset>
+
+  <div class="actions">
+    <button type="submit" class="primary">Save meal</button>
+    <a class="link" href="/meals">Cancel</a>
+  </div>
+</form>
+
+{% if meal %}
+  <form method="post" action="/meals/{{ meal.id }}/delete" class="danger"
+        onsubmit="return confirm('Delete {{ meal.name }}? Any nights using it will be cleared.')">
+    <button type="submit" class="link warn">Delete this meal</button>
+  </form>
+{% endif %}
+
+<script>
+  // Deliberately vanilla JS. The whole app has no build step, and this is the
+  // only interaction that genuinely needs the client — appending a row via the
+  // server would cost a round trip and lose whatever you were typing.
+  (function () {
+    const rows = document.getElementById('ingredient-rows');
+    const addButton = document.getElementById('add-ingredient');
+
+    function makeRow() {
+      const row = document.createElement('div');
+      row.className = 'ingredient-row';
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.name = 'ingredient';
+      input.autocomplete = 'off';
+
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'remove';
+      remove.setAttribute('aria-label', 'Remove ingredient');
+      remove.textContent = '×';
+
+      row.append(input, remove);
+      return { row, input };
+    }
+
+    addButton.addEventListener('click', function () {
+      const { row, input } = makeRow();
+      rows.append(row);
+      input.focus();
+    });
+
+    // One delegated listener rather than one per row, so rows added later work
+    // without any extra wiring.
+    rows.addEventListener('click', function (event) {
+      if (!event.target.classList.contains('remove')) return;
+      // Always leave one row behind, otherwise there's nothing to type into.
+      if (rows.querySelectorAll('.ingredient-row').length > 1) {
+        event.target.closest('.ingredient-row').remove();
+      } else {
+        event.target.closest('.ingredient-row').querySelector('input').value = '';
+      }
+    });
+
+    // Enter in an ingredient field adds the next row instead of submitting the
+    // form — much faster when typing out a recipe.
+    rows.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' && event.target.name === 'ingredient') {
+        event.preventDefault();
+        const { row, input } = makeRow();
+        rows.append(row);
+        input.focus();
+      }
+    });
+  })();
+</script>
+{% endblock %}

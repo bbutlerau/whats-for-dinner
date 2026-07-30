@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% set active = 'pantry' %}
+{% block title %}Pantry · Meal Planner{% endblock %}
+
+{% block content %}
+<h1>Pantry</h1>
+<p class="hint">
+  Tick what you've got. This is what the calendar colours are based on, and ticking
+  things off the shopping list marks them here automatically.
+</p>
+
+{% if not groups %}
+  <p class="empty">
+    Nothing here yet — pantry items appear as you add meals and their ingredients.
+  </p>
+{% endif %}
+
+{% for aisle, items in groups %}
+  <section class="aisle">
+    <h2>{{ aisle.emoji }} {{ aisle.label }}</h2>
+    <ul class="pantrylist">
+      {% for item in items %}
+        <li class="pantryitem {{ 'have' if item.in_stock else 'out' }}">
+          <form method="post" action="/pantry/{{ item.id }}/toggle" class="tick">
+            <button type="submit" aria-label="Toggle {{ item.display_name }}">
+              {{ '✅' if item.in_stock else '⬜' }}
+            </button>
+          </form>
+
+          <span class="name">
+            {{ item.display_name }}
+            {% if item.is_staple %}<span class="badge">staple</span>{% endif %}
+          </span>
+
+          {# The panel is wrapped in its own element so it can be positioned as a
+             popover. Without that wrapper it expands inside the row's flex
+             layout and collides with the item name. #}
+          <details class="itemmenu">
+            <summary aria-label="Options for {{ item.display_name }}">⋯</summary>
+            <div class="menupanel">
+              <p class="menutitle">{{ item.display_name }}</p>
+
+              <form method="post" action="/pantry/{{ item.id }}/staple">
+                <button type="submit" class="link">
+                  {{ 'Stop treating as a staple' if item.is_staple else 'Treat as a staple' }}
+                </button>
+              </form>
+
+              {# The merge that the parser refuses to guess: tying a bare "basil"
+                 to "dried basil" once, permanently. #}
+              <form method="post" action="/pantry/{{ item.id }}/alias" class="mergeform">
+                <label for="merge-{{ item.id }}">Same as…</label>
+                <select name="target_id" id="merge-{{ item.id }}">
+                  <option value="">— keep separate —</option>
+                  {% for other in all_items %}
+                    {% if other.id != item.id %}
+                      <option value="{{ other.id }}">{{ other.display_name }}</option>
+                    {% endif %}
+                  {% endfor %}
+                </select>
+                <button type="submit" class="link">Merge</button>
+              </form>
+            </div>
+          </details>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endfor %}
+
+{% if aliases %}
+  <section class="aisle">
+    <h2>🔗 Merged items</h2>
+    <p class="hint">These are counted as whatever they were merged into.</p>
+    <ul class="pantrylist">
+      {% for item in aliases %}
+        <li class="pantryitem merged">
+          <span class="name">
+            {{ item.display_name }} →
+            {{ alias_targets[item.alias_of_id].display_name if item.alias_of_id in alias_targets else '?' }}
+          </span>
+          <form method="post" action="/pantry/{{ item.id }}/alias">
+            <input type="hidden" name="target_id" value="">
+            <button type="submit" class="link">Unmerge</button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endif %}
+
+<script>
+  // Makes the ⋯ popovers behave like menus rather than a page full of open
+  // panels: one at a time, and tapping anywhere else dismisses them.
+  (function () {
+    const menus = Array.from(document.querySelectorAll('.itemmenu'));
+
+    menus.forEach(function (menu) {
+      menu.addEventListener('toggle', function () {
+        if (!menu.open) return;
+        menus.forEach(function (other) {
+          if (other !== menu) other.open = false;
+        });
+      });
+    });
+
+    document.addEventListener('click', function (event) {
+      // A tap inside a menu is either opening it or using it — leave it alone.
+      if (event.target.closest('.itemmenu')) return;
+      menus.forEach(function (menu) { menu.open = false; });
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') {
+        menus.forEach(function (menu) { menu.open = false; });
+      }
+    });
+  })();
+</script>
+{% endblock %}

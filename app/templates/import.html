@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Import from Paprika · Meal Planner{% endblock %}
+
+{% block content %}
+<h1>Import from Paprika</h1>
+
+{% if message %}
+  <p class="notice">{{ message }}</p>
+{% endif %}
+
+<p class="hint">
+  Only the meal name, its ingredients and the prep time are kept. Directions, notes
+  and photos are discarded on the way in — Paprika is still your recipe book, this is
+  just the calendar and the shopping list.
+</p>
+
+<section class="aisle">
+  <h2>📄 From a file export</h2>
+  <p class="hint">
+    In Paprika: Recipes → select all → Share → Export, which gives you a
+    <code>.paprikarecipes</code> file. This is the supported route and always works.
+  </p>
+  <form method="post" action="/import/file" enctype="multipart/form-data">
+    <input type="file" name="export" accept=".paprikarecipes,.paprikarecipe,application/zip" required>
+    <button type="submit" class="primary">Import file</button>
+  </form>
+</section>
+
+<section class="aisle">
+  <h2>☁️ From Paprika sync</h2>
+  {% if sync_available %}
+    <p class="hint">
+      Uses Paprika's private sync API with the credentials in your <code>.env</code>.
+      It's unofficial and undocumented, so it may stop working at any time — the file
+      export above is the fallback.
+    </p>
+    <form method="post" action="/import/sync">
+      <label>
+        How many recipes to fetch
+        <input type="number" name="limit" value="50" min="1" max="2000" inputmode="numeric">
+      </label>
+      <p class="hint">One request per recipe, so a big number takes a while.</p>
+      <button type="submit" class="primary">Sync now</button>
+    </form>
+  {% else %}
+    <p class="hint">
+      Not configured. Add <code>PAPRIKA_EMAIL</code> and <code>PAPRIKA_PASSWORD</code> to
+      your <code>.env</code> file and restart to enable it. Bear in mind this is your real
+      Paprika account password and the API is unofficial, so the file export is the
+      safer choice.
+    </p>
+  {% endif %}
+</section>
+
+<p><a class="link" href="/meals">← Back to meals</a></p>
+{% endblock %}

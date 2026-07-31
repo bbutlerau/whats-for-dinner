@@ -64,10 +64,11 @@ same mechanism cleans up anything else the parser splits when it shouldn't have.
 ```bash
 uv venv --python 3.12
 uv pip install -e ".[dev]"
-uv run uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload --port 7007
 ```
 
-Then open <http://localhost:8000>.
+Then open <http://localhost:7007>. The port is 7007 rather than uvicorn's usual
+8000 because 8000 is often already taken on a home server.
 
 ### On a server, with Docker
 
@@ -76,7 +77,7 @@ docker compose up -d --build
 ```
 
 The SQLite database lives in a named volume, so it survives rebuilds. Reach it
-over Tailscale at `http://<machine-name>:8000`.
+over Tailscale at `http://<machine-name>:7007`.
 
 There is **no login**. That's a deliberate choice for a personal app where
 Tailscale is the security perimeter — but it means this must not be exposed

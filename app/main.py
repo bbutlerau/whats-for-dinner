@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
+from app import __version__
 from app.config import get_settings
 from app.db import get_session, init_db
 from app.ingredients import aisles
@@ -48,6 +49,9 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 # Made available to every template so the aisle emoji can be rendered anywhere.
 templates.env.globals["aisle_for"] = aisles.aisle_for
+# Every page footer shows the running version, so "did the pull actually land?"
+# is answerable from the phone rather than by SSHing into the server.
+templates.env.globals["version"] = __version__
 
 
 @app.on_event("startup")

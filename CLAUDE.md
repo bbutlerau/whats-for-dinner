@@ -27,6 +27,15 @@ Follow explore → plan → code → verify for anything beyond a trivial one-fi
 ## Effort
 Leave effort at its default for most of this project. Drop to `/effort low` or `/effort medium` for renames, formatting, and repetitive edits. Reach for `/effort high` or `/effort xhigh` for architecture decisions, tricky bugs, and anything security-related.
 
+## Versioning and releases
+This project is versioned and every deployable change ships as a tagged release. Treat the following as standard practice rather than something to ask about each time.
+
+The version lives in exactly one place, `__version__` in `app/__init__.py`; `pyproject.toml` reads it from there via hatch, and the page footer displays it. Never hardcode it a second time. It's semantic in spirit — below 1.0 the minor number moves for features and the patch number for fixes — and anything that would make Brad re-enter data or edit his `docker-compose.yml` gets called out explicitly in the changelog.
+
+`CHANGELOG.md` follows Keep a Changelog, newest first, written in the same plain prose as everything else here. Every user-visible change earns an entry as part of the commit that makes it, not in a sweep before release. Keep an `## [Unreleased]` section at the top for work that's landed but isn't tagged yet.
+
+To cut a release: move the Unreleased entries under a new version heading with today's date, bump `__version__` in the same commit, then tag `vX.Y.Z` and push the tag. Pushing the tag is what publishes the versioned image to GHCR, so it needs the same confirmation as any other push. Don't tag a commit whose CI hasn't gone green.
+
 ## Verification
 Do your own verification as part of finishing a task rather than waiting to be told to check your work — and you don't need to narrate every check you ran. Just tell me plainly if something didn't work, or if you're unsure.
 

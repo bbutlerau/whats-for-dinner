@@ -1,15 +1,17 @@
 # Where this project is up to
 
-Last updated 31 July 2026. This is a handoff note for picking the project back up
-later — what's built, what's been verified, and what's deliberately still open.
-`CLAUDE.md` holds the working agreement and the domain rules; this file holds the
-state.
+Last updated 31 July 2026, at v0.2.0. This is a handoff note for picking the
+project back up later — what's built, what's been verified, and what's
+deliberately still open. `CLAUDE.md` holds the working agreement and the domain
+rules, `CHANGELOG.md` holds the release history, and this file holds the state.
 
 ## Status in one line
 
-The app is built, tested, linted and running live on the home server. It has been
-used from Brad's iPhone over Tailscale with real data. Nothing is committed to git
-yet.
+The app is built, tested, linted and published. The repository is public at
+github.com/bbutlerau/whats-for-dinner, CI runs the suite and pushes a container
+image to GHCR on every green build, and the server runs that image rather than
+building from source. It has been used from Brad's iPhone over Tailscale with
+real data.
 
 ## What's built
 
@@ -33,6 +35,13 @@ list of ingredient lines.
 Items are grouped by aisle with emoji, each has a tick, and the `⋯` menu offers
 "treat as a staple" and the merge ("same as…"). Merged items get their own section
 at the bottom and can be unmerged.
+
+The screen is scoped to a date range, defaulting to today through a week ahead and
+editable at the top, showing only the items the meals planned in that range need.
+Filtering never deletes: stock, staple flags and merges survive off screen. The
+merge picker floats likely matches into a Suggested group, and merging offers
+"Always treat it this way" (on by default), which saves a name-level rule so a
+later import of that name arrives already merged.
 
 **Shopping** (`/shopping`) consolidates the week's missing ingredients by aisle,
 ticks off as you shop (which feeds straight back into pantry stock), keeps staples
@@ -68,11 +77,19 @@ converted, on the grounds that an untidy honest answer beats a confidently wrong
 number. Ranges like "2-3 tbsp" survive as text.
 
 `app/ingredients/store.py` handles alias resolution. Chains are collapsed on write
-so they're only ever one hop deep, and the setter refuses to create a cycle.
+so they're only ever one hop deep, and the setter refuses to create a cycle. It
+also holds merge suggestions and saved substitutions.
+
+`app/ingredients/synonyms.py` is a hand-written table of same-ingredient pairs. It
+exists because string similarity genuinely cannot do this: `cilantro`/`coriander`
+scores 0.59 and `zucchini`/`courgette` scores 0.12, while `carrot`/`parrot` scores
+0.83, so no single cutoff finds the real pairs and rejects the nonsense. The fuzzy
+arm is pinned at 0.9 and only catches misspellings. Add pairs to the table by hand
+rather than loosening the cutoff.
 
 ## Verification
 
-95 tests pass (`pytest`), ruff is clean. Beyond unit tests, the following were
+130 tests pass (`pytest`), ruff is clean. Beyond unit tests, the following were
 checked end to end over HTTP: red → tick off → green, amber for a staple-only gap,
 garlic consolidating to `5 clove` from a 2 and a 3, a merge turning a meal green,
 the alias cycle guard holding, and — by grepping the raw SQLite bytes — that
@@ -97,20 +114,24 @@ rows so it doesn't open off-screen.
 
 ## Open items, in rough priority order
 
-1. **Not a git repo yet.** Nothing is committed. It's intended to go public on
-   GitHub, and the security setup (`.gitignore`, `.env.example`, LICENSE, the deny
-   rules in `.claude/settings.json`) is already in place for that. `git init`, a
-   first commit, and a push are the next obvious step — remembering that CLAUDE.md
-   asks for confirmation before any push.
-2. **Try the Paprika sync path** with real credentials, or decide the file export
-   is enough and leave sync as-is.
-3. **Use it for a real week** and see what the merge flow feels like on a phone.
+1. **Use it for a real week** and see what the merge flow feels like on a phone.
    Brad's live data already showed `Cheese` / `Cheddar or tasty cheese` and
    `Butter` / `Unsalted butter` needing merging, which is the parser behaving
-   correctly but is also the flow most likely to feel slow in practice.
-4. **Deploy to the Ubuntu server properly** via Docker Compose. The Dockerfile and
-   `docker-compose.yml` exist and the named volume for the database is set up, but
-   the live testing so far has been the dev server on the Mac.
+   correctly but is also the flow most likely to feel slow in practice. The
+   suggestion feature was built for exactly this; whether it actually helps is
+   the open question.
+2. **No screen lists the saved substitution rules.** A rule saved by mistake can
+   currently only be undone by finding the item it came from and unmerging it.
+   Noted deliberately rather than built — worth doing if a wrong rule ever bites,
+   probably as a section on the pantry screen alongside "Merged items".
+3. **Items outside the pantry's date range are unreachable.** Because the pantry
+   is scoped with no all-items toggle (a deliberate choice for a simpler screen),
+   an ingredient belonging to a meal that has never been planned can't be merged
+   or flagged as a staple from the UI. Widening the dates is the only way to it.
+   If that gets annoying, the fix is a toggle or a search box rather than undoing
+   the scoping.
+4. **Try the Paprika sync path** with real credentials, or decide the file export
+   is enough and leave sync as-is.
 
 ## Deliberately not built
 
@@ -122,10 +143,16 @@ API integration, because no public API exists; if one ever appears,
 ## Running it
 
 ```
-uv run uvicorn app.main:app --reload            # dev, localhost
-uv run uvicorn app.main:app --host 0.0.0.0      # reachable over Tailscale
-uv run pytest && uv run ruff check .            # before calling anything done
+uv run uvicorn app.main:app --reload --port 7007   # dev, localhost
+uv run uvicorn app.main:app --host 0.0.0.0 --port 7007   # over Tailscale
+uv run pytest && uv run ruff check .              # before calling anything done
+
+docker compose pull && docker compose up -d       # on the server: deploy
 ```
+
+The port is 7007, not 8000, which is taken by an MCP server on Brad's machine.
+The footer of every page shows the running version, which is the quickest way to
+confirm a pull actually landed.
 
 Data lives in `./data/mealplanner.db` locally and in the named volume under
 Compose. Both are gitignored.

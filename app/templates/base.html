@@ -26,6 +26,9 @@
 
   <footer>
     <a href="/import">Import from Paprika</a>
+    {# Shown so it's obvious at a glance which build the server is actually
+       running after a docker compose pull. #}
+    <span class="version">v{{ version }}</span>
   </footer>
 </body>
 </html>

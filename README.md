@@ -6,6 +6,15 @@ are ready to cook are green, meals missing something are red with the missing
 items listed, and the shopping list that comes out the other end pastes straight
 into Listonic.
 
+## A disclaimer worth reading first
+
+This is a personal app I built for myself, and it was written by Claude rather
+than typed out by hand. It is not a product and should not be considered stable —
+there's no support, no upgrade path, and the data model may change under you. That
+said, I use it every week for my own dinners, so I have every intention of keeping
+it working. Fork it, borrow from it, or run it yourself if it's useful, but do
+that with your eyes open.
+
 It is deliberately not a recipe app. There's no method, no photos, no ratings —
 [Paprika](https://www.paprikaapp.com/) already does that well, and this pulls just
 the meal name, ingredients and prep time from it.
@@ -140,7 +149,7 @@ recipes and your Paprika password stay on your own machine.
 
 ## Layout
 
-```
+```text
 app/
   main.py            FastAPI routes — thin, just forms in and templates out
   models.py          Meal, MealIngredient, PantryItem, PlanEntry

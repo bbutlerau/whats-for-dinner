@@ -150,6 +150,15 @@ h2 { font-size: 1rem; margin: 1.4rem 0 0.5rem; color: var(--ink-soft); }
   cursor: pointer;
 }
 
+.remember {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  margin: 0.4rem 0;
+}
+
 .weeknav {
   display: flex;
   align-items: center;

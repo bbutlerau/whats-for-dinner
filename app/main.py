@@ -24,7 +24,13 @@ from sqlmodel import Session, select
 from app.config import get_settings
 from app.db import get_session, init_db
 from app.ingredients import aisles
-from app.ingredients.store import resolve_line, set_alias
+from app.ingredients.store import (
+    forget_substitution,
+    remember_substitution,
+    resolve_line,
+    set_alias,
+    suggest_merge_targets,
+)
 from app.models import SOURCE_MANUAL, Meal, MealIngredient, PantryItem, PlanEntry
 from app.paprika import sync as paprika_sync
 from app.paprika.importer import import_meals
@@ -378,6 +384,11 @@ def pantry(
     ]
     alias_targets = {item.id: item for item in items}
 
+    # Deliberately every item, not just the visible ones: you merge a stray
+    # ingredient into its proper home regardless of whether that home happens
+    # to be on this week's menu.
+    mergeable = [i for i in items if i.alias_of_id is None]
+
     return templates.TemplateResponse(
         request,
         "pantry.html",
@@ -385,10 +396,14 @@ def pantry(
             "groups": ordered,
             "aliases": aliases,
             "alias_targets": alias_targets,
-            # Deliberately every item, not just the visible ones: you merge a
-            # stray ingredient into its proper home regardless of whether that
-            # home happens to be on this week's menu.
-            "all_items": [i for i in items if i.alias_of_id is None],
+            "all_items": mergeable,
+            # Per visible item: the handful of things it might be the same as,
+            # so the picker can float them above the full alphabetical list.
+            "suggestions": {
+                item.id: suggest_merge_targets(session, item, mergeable)
+                for group in groups.values()
+                for item in group
+            },
             "range_start": range_start,
             "range_end": range_end,
         },
@@ -442,6 +457,7 @@ def toggle_staple(
 def merge_item(
     item_id: int,
     target_id: str = Form(""),
+    remember: str = Form(""),
     start: str = Form(""),
     end: str = Form(""),
     session: Session = Depends(get_session),
@@ -450,6 +466,12 @@ def merge_item(
 
     This is how an unqualified "basil" gets tied to "dried basil" — a decision the
     parser refuses to make on your behalf, made once here and remembered.
+
+    ``remember`` decides whether the decision also becomes a standing rule for
+    items that don't exist yet. Ticked (the default) suits a real synonym like
+    cilantro and coriander. Unticked suits a line like "basil or parsley", where
+    the answer is a choice you want to make again next time rather than have
+    silently applied to every future import.
     """
     item = session.get(PantryItem, item_id)
     if item is None:
@@ -457,6 +479,14 @@ def merge_item(
 
     target = session.get(PantryItem, int(target_id)) if target_id.strip() else None
     set_alias(session, item, target)
+
+    if target is None:
+        # Unmerging withdraws the standing order too, otherwise the next import
+        # would silently reinstate the merge the user just undid.
+        forget_substitution(session, item)
+    elif remember:
+        remember_substitution(session, item, target)
+
     session.commit()
     return RedirectResponse(_pantry_redirect(start, end), status_code=303)
 

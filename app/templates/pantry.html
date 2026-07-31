@@ -68,14 +68,36 @@
                 <input type="hidden" name="start" value="{{ range_start.isoformat() }}">
                 <input type="hidden" name="end" value="{{ range_end.isoformat() }}">
                 <label for="merge-{{ item.id }}">Same as…</label>
+                {% set suggested = suggestions.get(item.id, []) %}
+                {% set suggested_ids = suggested | map(attribute='id') | list %}
                 <select name="target_id" id="merge-{{ item.id }}">
                   <option value="">— keep separate —</option>
-                  {% for other in all_items %}
-                    {% if other.id != item.id %}
-                      <option value="{{ other.id }}">{{ other.display_name }}</option>
-                    {% endif %}
-                  {% endfor %}
+                  {# Likely matches float to the top, but nothing is preselected:
+                     the merge is still the user's call, every time. #}
+                  {% if suggested %}
+                    <optgroup label="Suggested">
+                      {% for other in suggested %}
+                        <option value="{{ other.id }}">{{ other.display_name }}</option>
+                      {% endfor %}
+                    </optgroup>
+                  {% endif %}
+                  <optgroup label="{{ 'Everything else' if suggested else 'All items' }}">
+                    {% for other in all_items %}
+                      {% if other.id != item.id and other.id not in suggested_ids %}
+                        <option value="{{ other.id }}">{{ other.display_name }}</option>
+                      {% endif %}
+                    {% endfor %}
+                  </optgroup>
                 </select>
+
+                {# On by default: most merges are real synonyms worth remembering.
+                   Untick it for a judgement call like "basil or parsley", where
+                   the answer changes with the meal. #}
+                <label class="remember">
+                  <input type="checkbox" name="remember" value="1" checked>
+                  Always treat it this way
+                </label>
+
                 <button type="submit" class="link">Merge</button>
               </form>
             </div>

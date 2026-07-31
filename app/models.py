@@ -59,6 +59,32 @@ class PantryItem(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_utcnow)
 
 
+class SubstitutionRule(SQLModel, table=True):
+    """A remembered "this name always means that item" decision.
+
+    An alias on a PantryItem merges one existing row into another. This is the
+    standing order that outlives it: when a future import creates a brand new
+    item whose key is ``source_key``, merge it into ``target_key`` without
+    asking again. That's right for a genuine synonym — cilantro is coriander,
+    always — which is why saving the rule is the default when merging.
+
+    It is emphatically not right for a line like "basil or parsley", where the
+    answer is a cook's choice that changes with the meal. Those merges are made
+    without saving a rule, which is what the checkbox on the merge form is for.
+
+    Keys rather than ids on purpose: a rule has to apply to rows that don't
+    exist yet, and it should survive a target being deleted and recreated by a
+    later import.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+
+    source_key: str = Field(index=True, unique=True)
+    target_key: str = Field(index=True)
+
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
 class Meal(SQLModel, table=True):
     """A dinner you can put on the calendar."""
 

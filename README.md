@@ -57,6 +57,33 @@ it gives the wrong answer, so instead the pantry offers a one-tap **"same as…"
 merge. You tie `basil` to `dried basil` once and it's remembered permanently. The
 same mechanism cleans up anything else the parser splits when it shouldn't have.
 
+The merge picker floats likely matches to the top under **Suggested**. Those come
+from three places: the same base name in a different form, a hand-written synonym
+table for the pairs no algorithm can find (`cilantro`/`coriander`,
+`zucchini`/`courgette` — mostly the American/Australian split, which comes up
+constantly in imported recipes), and a deliberately strict fuzzy match that only
+catches outright misspellings. The cutoff is high on purpose: `carrot` and
+`parrot` are an 0.83 string match, and a confident wrong suggestion is a bad merge
+one tap away. The synonym list lives in `app/ingredients/synonyms.py` and is meant
+to be added to.
+
+Merging offers **"Always treat it this way"**, ticked by default. Leave it on for
+a real synonym and any future import that introduces that name is merged for you.
+Turn it off for a line like `basil or parsley`, where which one you use is a
+decision you want to make again next time rather than have applied silently
+forever. Unmerging withdraws the standing order too.
+
+## Which items the pantry shows
+
+The pantry is scoped to a date range — by default today through a week ahead,
+editable at the top of the screen — and lists only the items the meals planned in
+that range actually call for. A pantry containing every ingredient of every recipe
+you've ever imported is a list nobody reads.
+
+Nothing is deleted by narrowing the range. Stock, staple flags and merges all
+survive for items that aren't currently on screen, and they come back as soon as a
+meal that needs them is planned.
+
 ## Running it
 
 ### Locally
@@ -177,11 +204,12 @@ recipes and your Paprika password stay on your own machine.
 ```text
 app/
   main.py            FastAPI routes — thin, just forms in and templates out
-  models.py          Meal, MealIngredient, PantryItem, PlanEntry
+  models.py          Meal, MealIngredient, PantryItem, PlanEntry, SubstitutionRule
   ingredients/
     normalise.py     freeform text → a stable pantry identity (the tricky bit)
     aisles.py        emoji aisle map with fuzzy matching
-    store.py         pantry lookup, staples, alias merges
+    synonyms.py      hand-written same-ingredient pairs, mostly AU/US
+    store.py         pantry lookup, staples, alias merges, saved substitutions
   planner/
     status.py        the colour logic
     week.py          week arithmetic

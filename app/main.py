@@ -11,8 +11,9 @@ never be exposed directly to the internet.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
@@ -29,7 +30,7 @@ from app.paprika import sync as paprika_sync
 from app.paprika.importer import import_meals
 from app.paprika.parse import meals_from_export
 from app.planner import week as week_util
-from app.planner.status import build_week, status_for_meal
+from app.planner.status import build_week, pantry_item_ids_for_days, status_for_meal
 from app.shopping import listonic
 from app.shopping.list import build_list
 
@@ -66,6 +67,37 @@ def _parse_start(value: str | None) -> date:
         except ValueError:
             pass
     return week_util.week_start(date.today())
+
+
+def _parse_day(value: str | None) -> date | None:
+    """One ?start=/?end= date, or None if absent or unparseable."""
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+# How far ahead the pantry looks when you haven't said otherwise. Seven days
+# from today rather than the calendar's Monday-anchored week: on a Thursday you
+# care about the next week of dinners, not the three nights left in this one.
+PANTRY_RANGE_DAYS = 7
+
+
+def _parse_range(start: str | None, end: str | None) -> tuple[date, date]:
+    """Resolve the pantry's date range, filling in whichever end is missing.
+
+    Like _parse_start, bad input falls back to the default rather than erroring.
+    A range given backwards is swapped instead of rejected, which is what
+    someone fumbling two date pickers on a phone actually meant.
+    """
+    today = date.today()
+    range_start = _parse_day(start) or today
+    range_end = _parse_day(end) or range_start + timedelta(days=PANTRY_RANGE_DAYS)
+    if range_end < range_start:
+        range_start, range_end = range_end, range_start
+    return range_start, range_end
 
 
 # --- Calendar --------------------------------------------------------------
@@ -299,18 +331,38 @@ def _parse_minutes(value: str) -> int | None:
 # --- Pantry ----------------------------------------------------------------
 
 @app.get("/pantry", response_class=HTMLResponse)
-def pantry(request: Request, session: Session = Depends(get_session)) -> HTMLResponse:
-    """The running list of what we've got.
+def pantry(
+    request: Request,
+    start: str | None = None,
+    end: str | None = None,
+    session: Session = Depends(get_session),
+) -> HTMLResponse:
+    """The running list of what we've got, for the meals actually coming up.
+
+    Scoped to a date range rather than showing every item ever imported: the
+    pantry is a shopping aid, and a hundred rows from meals you aren't cooking
+    this week drown out the dozen that matter. The range defaults to today
+    through a week from today and is editable at the top of the screen.
+
+    Nothing is deleted by filtering — stock, staple flags and merges all survive
+    for hidden items and reappear when a meal that needs them is planned.
 
     Grouped by aisle so it reads like a cupboard rather than an alphabetised
     database dump.
     """
+    range_start, range_end = _parse_range(start, end)
+    days = week_util.days_in_range(range_start, range_end)
+    wanted_ids = pantry_item_ids_for_days(session, days)
+
     items = session.exec(select(PantryItem).order_by(PantryItem.display_name)).all()
 
     groups: dict[str, list[PantryItem]] = {}
     for item in items:
         if item.alias_of_id is not None:
             # Merged items are shown under their target, not as separate rows.
+            continue
+        if item.id not in wanted_ids:
+            # Not needed by anything planned in the range.
             continue
         groups.setdefault(item.aisle or "other", []).append(item)
 
@@ -319,7 +371,11 @@ def pantry(request: Request, session: Session = Depends(get_session)) -> HTMLRes
         for slug, group in sorted(groups.items(), key=lambda kv: aisles.aisle_for(kv[0]).order)
     ]
 
-    aliases = [item for item in items if item.alias_of_id is not None]
+    # Only merges that affect something on screen. An alias pointing at an item
+    # this range doesn't need is just noise here.
+    aliases = [
+        item for item in items if item.alias_of_id is not None and item.alias_of_id in wanted_ids
+    ]
     alias_targets = {item.id: item for item in items}
 
     return templates.TemplateResponse(
@@ -329,37 +385,65 @@ def pantry(request: Request, session: Session = Depends(get_session)) -> HTMLRes
             "groups": ordered,
             "aliases": aliases,
             "alias_targets": alias_targets,
+            # Deliberately every item, not just the visible ones: you merge a
+            # stray ingredient into its proper home regardless of whether that
+            # home happens to be on this week's menu.
             "all_items": [i for i in items if i.alias_of_id is None],
+            "range_start": range_start,
+            "range_end": range_end,
         },
     )
 
 
+def _pantry_redirect(start: str, end: str) -> str:
+    """Back to the pantry, keeping whatever date range the user was looking at.
+
+    Without this every tick would bounce the screen back to the default range,
+    which is maddening halfway through checking a cupboard.
+    """
+    if not (start or end):
+        return "/pantry"
+    return f"/pantry?start={quote(start)}&end={quote(end)}"
+
+
 @app.post("/pantry/{item_id}/toggle")
-def toggle_stock(item_id: int, session: Session = Depends(get_session)) -> RedirectResponse:
+def toggle_stock(
+    item_id: int,
+    start: str = Form(""),
+    end: str = Form(""),
+    session: Session = Depends(get_session),
+) -> RedirectResponse:
     item = session.get(PantryItem, item_id)
     if item is None:
         raise HTTPException(status_code=404, detail="Pantry item not found")
     item.in_stock = not item.in_stock
     session.add(item)
     session.commit()
-    return RedirectResponse("/pantry", status_code=303)
+    return RedirectResponse(_pantry_redirect(start, end), status_code=303)
 
 
 @app.post("/pantry/{item_id}/staple")
-def toggle_staple(item_id: int, session: Session = Depends(get_session)) -> RedirectResponse:
+def toggle_staple(
+    item_id: int,
+    start: str = Form(""),
+    end: str = Form(""),
+    session: Session = Depends(get_session),
+) -> RedirectResponse:
     item = session.get(PantryItem, item_id)
     if item is None:
         raise HTTPException(status_code=404, detail="Pantry item not found")
     item.is_staple = not item.is_staple
     session.add(item)
     session.commit()
-    return RedirectResponse("/pantry", status_code=303)
+    return RedirectResponse(_pantry_redirect(start, end), status_code=303)
 
 
 @app.post("/pantry/{item_id}/alias")
 def merge_item(
     item_id: int,
     target_id: str = Form(""),
+    start: str = Form(""),
+    end: str = Form(""),
     session: Session = Depends(get_session),
 ) -> RedirectResponse:
     """Merge one pantry item into another, or unmerge it.
@@ -374,7 +458,7 @@ def merge_item(
     target = session.get(PantryItem, int(target_id)) if target_id.strip() else None
     set_alias(session, item, target)
     session.commit()
-    return RedirectResponse("/pantry", status_code=303)
+    return RedirectResponse(_pantry_redirect(start, end), status_code=303)
 
 
 # --- Shopping list ---------------------------------------------------------

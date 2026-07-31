@@ -8,9 +8,17 @@ from datetime import date
 
 from sqlmodel import Session, select
 
-from app.ingredients.store import set_alias
+from app.ingredients.store import resolve_line, set_alias
 from app.models import PantryItem, PlanEntry
-from app.planner.status import AMBER, GREEN, GREY, RED, build_week, status_for_meal
+from app.planner.status import (
+    AMBER,
+    GREEN,
+    GREY,
+    RED,
+    build_week,
+    pantry_item_ids_for_days,
+    status_for_meal,
+)
 
 
 def _item(session: Session, key: str) -> PantryItem:
@@ -110,3 +118,69 @@ class TestWeek:
         assert nights[0].meal.name == "Test pasta"
         assert nights[0].status.status == RED
         assert nights[1].status.status == GREY
+
+
+class TestPantryItemIdsForDays:
+    """The pantry screen shows only what the planned meals in a range need."""
+
+    def test_only_items_from_meals_planned_in_the_range(self, session, make_meal):
+        planned = make_meal("Test noodle bowl", ["2 spring onions", "1 tbsp miso paste"])
+        make_meal("Test unplanned bake", ["300 g invented cheese"])
+        session.add(PlanEntry(day=date(2026, 8, 3), meal_id=planned.id))
+        session.commit()
+
+        ids = pantry_item_ids_for_days(session, [date(2026, 8, 3)])
+        names = {session.get(PantryItem, i).display_name.lower() for i in ids}
+
+        assert any("spring onion" in n for n in names)
+        assert any("miso" in n for n in names)
+        # The unplanned meal's ingredient exists in the pantry table but is not
+        # part of this range, so it must not come back.
+        assert not any("cheese" in n for n in names)
+
+    def test_a_day_outside_the_range_is_excluded(self, session, make_meal):
+        meal = make_meal("Test soup", ["1 carrot"])
+        session.add(PlanEntry(day=date(2026, 8, 10), meal_id=meal.id))
+        session.commit()
+
+        assert pantry_item_ids_for_days(session, [date(2026, 8, 3)]) == set()
+        assert pantry_item_ids_for_days(session, [date(2026, 8, 10)]) != set()
+
+    def test_empty_range_returns_nothing(self, session, make_meal):
+        meal = make_meal("Test soup", ["1 carrot"])
+        session.add(PlanEntry(day=date(2026, 8, 3), meal_id=meal.id))
+        session.commit()
+
+        assert pantry_item_ids_for_days(session, []) == set()
+
+    def test_the_same_meal_twice_in_a_range_is_not_double_counted(self, session, make_meal):
+        meal = make_meal("Test soup", ["1 carrot"])
+        session.add(PlanEntry(day=date(2026, 8, 3), meal_id=meal.id))
+        session.add(PlanEntry(day=date(2026, 8, 4), meal_id=meal.id))
+        session.commit()
+
+        ids = pantry_item_ids_for_days(session, [date(2026, 8, 3), date(2026, 8, 4)])
+        assert len(ids) == 1
+
+    def test_a_merged_ingredient_resolves_to_its_target(self, session, make_meal):
+        """A merged item must surface as the item that actually holds the stock.
+
+        Otherwise merging basil into dried basil would make the row disappear
+        from the pantry for a week that genuinely needs it.
+        """
+        meal = make_meal("Test herb salad", ["1 tsp invented herb"])
+        session.add(PlanEntry(day=date(2026, 8, 3), meal_id=meal.id))
+        session.commit()
+
+        bare = session.exec(
+            select(PantryItem).where(PantryItem.display_name.contains("invented herb"))
+        ).first()
+        # Built through resolve_line so it gets a proper key and aisle, the same
+        # way a real ingredient line would create it.
+        _, target = resolve_line(session, "1 tsp dried invented herb")
+        session.commit()
+        set_alias(session, bare, target)
+        session.commit()
+
+        ids = pantry_item_ids_for_days(session, [date(2026, 8, 3)])
+        assert ids == {target.id}

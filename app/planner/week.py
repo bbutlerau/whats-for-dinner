@@ -23,6 +23,21 @@ def week_days(start: date) -> list[date]:
     return [start + timedelta(days=offset) for offset in range(7)]
 
 
+def days_in_range(start: date, end: date) -> list[date]:
+    """Every date from ``start`` to ``end``, inclusive of both ends.
+
+    Unlike week_days this isn't anchored to a Monday — the pantry screen works
+    off a rolling range like "today to a week from today", which is how you
+    actually think about what you need to buy. A backwards range (end before
+    start) yields nothing rather than raising: the date inputs are free text as
+    far as the browser is concerned, and an empty pantry is a clearer answer
+    than a stack trace.
+    """
+    if end < start:
+        return []
+    return [start + timedelta(days=offset) for offset in range((end - start).days + 1)]
+
+
 def shift_weeks(start: date, weeks: int) -> date:
     """Move a week start forwards or backwards."""
     return start + timedelta(weeks=weeks)

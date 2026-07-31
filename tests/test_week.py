@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from app.planner.week import describe_week, shift_weeks, week_days, week_start
+from app.planner.week import days_in_range, describe_week, shift_weeks, week_days, week_start
 
 
 def test_week_starts_on_monday():
@@ -39,3 +39,28 @@ class TestDescribeWeek:
 
     def test_spanning_two_years(self):
         assert describe_week(date(2026, 12, 28)) == "28 Dec 2026 – 3 Jan 2027"
+
+
+class TestDaysInRange:
+    def test_inclusive_of_both_ends(self):
+        days = days_in_range(date(2026, 8, 3), date(2026, 8, 5))
+        assert days == [date(2026, 8, 3), date(2026, 8, 4), date(2026, 8, 5)]
+
+    def test_single_day_range(self):
+        assert days_in_range(date(2026, 8, 3), date(2026, 8, 3)) == [date(2026, 8, 3)]
+
+    def test_backwards_range_is_empty_rather_than_raising(self):
+        assert days_in_range(date(2026, 8, 5), date(2026, 8, 3)) == []
+
+    def test_spans_a_month_boundary(self):
+        days = days_in_range(date(2026, 8, 30), date(2026, 9, 2))
+        assert days == [
+            date(2026, 8, 30),
+            date(2026, 8, 31),
+            date(2026, 9, 1),
+            date(2026, 9, 2),
+        ]
+
+    def test_default_length_matches_the_pantry_default(self):
+        # Today plus seven days is eight dates, not seven — both ends count.
+        assert len(days_in_range(date(2026, 8, 3), date(2026, 8, 10))) == 8

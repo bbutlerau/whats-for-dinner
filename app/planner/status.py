@@ -151,3 +151,22 @@ def ingredient_lines_for(session: Session, meals: list[Meal]) -> list[MealIngred
     for meal in meals:
         lines.extend(meal.ingredients)
     return lines
+
+
+def pantry_item_ids_for_days(session: Session, days: list[date]) -> set[int]:
+    """The pantry items the meals planned across ``days`` actually need.
+
+    Aliases are resolved on the way out, so an ingredient merged into another
+    item contributes its target's id. Without that, merging `basil` into
+    `dried basil` would make the row vanish from a filtered pantry even though
+    that is exactly the item the week depends on.
+    """
+    ids: set[int] = set()
+    for line in ingredient_lines_for(session, planned_meals(session, days)):
+        item = session.get(PantryItem, line.pantry_item_id)
+        if item is None:
+            continue
+        resolved = effective_item(session, item)
+        if resolved.id is not None:
+            ids.add(resolved.id)
+    return ids

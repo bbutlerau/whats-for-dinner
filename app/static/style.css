@@ -121,6 +121,35 @@ h2 { font-size: 1rem; margin: 1.4rem 0 0.5rem; color: var(--ink-soft); }
   border-radius: 8px;
 }
 
+/* The pantry's date range picker. Wraps rather than scrolls, because two date
+   inputs plus a button don't fit across a phone in one line. */
+.rangeform {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+.rangeform input[type="date"] {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: inherit;
+  font: inherit;
+}
+.rangeform button {
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
 .weeknav {
   display: flex;
   align-items: center;

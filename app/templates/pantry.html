@@ -9,9 +9,21 @@
   things off the shopping list marks them here automatically.
 </p>
 
+{# Only the ingredients the planned meals in this range actually call for.
+   Widening the dates brings more of the pantry back into view. #}
+<form method="get" action="/pantry" class="rangeform">
+  <label for="range-start">From</label>
+  <input type="date" id="range-start" name="start" value="{{ range_start.isoformat() }}">
+  <label for="range-end">to</label>
+  <input type="date" id="range-end" name="end" value="{{ range_end.isoformat() }}">
+  <button type="submit">Show</button>
+</form>
+
 {% if not groups %}
   <p class="empty">
-    Nothing here yet — pantry items appear as you add meals and their ingredients.
+    Nothing planned between {{ range_start.strftime('%-d %b') }} and
+    {{ range_end.strftime('%-d %b') }} — or the meals that are planned have no
+    ingredients yet. Widen the dates, or plan some nights on the calendar.
   </p>
 {% endif %}
 
@@ -22,6 +34,8 @@
       {% for item in items %}
         <li class="pantryitem {{ 'have' if item.in_stock else 'out' }}">
           <form method="post" action="/pantry/{{ item.id }}/toggle" class="tick">
+            <input type="hidden" name="start" value="{{ range_start.isoformat() }}">
+            <input type="hidden" name="end" value="{{ range_end.isoformat() }}">
             <button type="submit" aria-label="Toggle {{ item.display_name }}">
               {{ '✅' if item.in_stock else '⬜' }}
             </button>
@@ -41,6 +55,8 @@
               <p class="menutitle">{{ item.display_name }}</p>
 
               <form method="post" action="/pantry/{{ item.id }}/staple">
+                <input type="hidden" name="start" value="{{ range_start.isoformat() }}">
+                <input type="hidden" name="end" value="{{ range_end.isoformat() }}">
                 <button type="submit" class="link">
                   {{ 'Stop treating as a staple' if item.is_staple else 'Treat as a staple' }}
                 </button>
@@ -49,6 +65,8 @@
               {# The merge that the parser refuses to guess: tying a bare "basil"
                  to "dried basil" once, permanently. #}
               <form method="post" action="/pantry/{{ item.id }}/alias" class="mergeform">
+                <input type="hidden" name="start" value="{{ range_start.isoformat() }}">
+                <input type="hidden" name="end" value="{{ range_end.isoformat() }}">
                 <label for="merge-{{ item.id }}">Same as…</label>
                 <select name="target_id" id="merge-{{ item.id }}">
                   <option value="">— keep separate —</option>
@@ -81,6 +99,8 @@
           </span>
           <form method="post" action="/pantry/{{ item.id }}/alias">
             <input type="hidden" name="target_id" value="">
+            <input type="hidden" name="start" value="{{ range_start.isoformat() }}">
+            <input type="hidden" name="end" value="{{ range_end.isoformat() }}">
             <button type="submit" class="link">Unmerge</button>
           </form>
         </li>

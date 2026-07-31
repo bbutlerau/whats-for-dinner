@@ -1,6 +1,11 @@
 services:
   mealplanner:
-    build: .
+    # The server runs a prebuilt image published by GitHub Actions, so deploying
+    # is "pull and restart" rather than a build on the box. To build from local
+    # source instead, add the dev override:
+    #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+    image: ghcr.io/bbutlerau/whats-for-dinner:latest
+    pull_policy: always
     container_name: mealplanner
     restart: unless-stopped
     ports:

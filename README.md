@@ -72,12 +72,36 @@ Then open <http://localhost:7007>. The port is 7007 rather than uvicorn's usual
 
 ### On a server, with Docker
 
+Every push to `main` runs the test suite and, if it passes, publishes an image to
+`ghcr.io/bbutlerau/whats-for-dinner`. The server pulls that rather than building
+from source, so it only needs two files — `docker-compose.yml` and, if you use
+the Paprika sync, a `.env`:
+
 ```bash
-docker compose up -d --build
+curl -O https://raw.githubusercontent.com/bbutlerau/whats-for-dinner/main/docker-compose.yml
+docker compose up -d
 ```
 
-The SQLite database lives in a named volume, so it survives rebuilds. Reach it
-over Tailscale at `http://<machine-name>:7007`.
+Updating later is the same two steps every time:
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+The image is public, so no registry login is needed. Tags are `latest` (follows
+`main`), `sha-<commit>` for pinning an exact build, and `X.Y.Z` for anything
+released under a `v*` git tag. If a bad build ever lands, pin the previous
+`sha-` tag in `docker-compose.yml` and pull again.
+
+The SQLite database lives in a named volume, so it survives rebuilds and image
+updates. Reach it over Tailscale at `http://<machine-name>:7007`.
+
+To build from your own working tree instead of pulling — which is what you want
+when developing against the container:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+```
 
 There is **no login**. That's a deliberate choice for a personal app where
 Tailscale is the security perimeter — but it means this must not be exposed

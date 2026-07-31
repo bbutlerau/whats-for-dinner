@@ -8,24 +8,30 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    UV_SYSTEM_PYTHON=1 \
-    UV_COMPILE_BYTECODE=1
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
 
 WORKDIR /app
 
 # Dependencies are installed before the source is copied so that editing code
 # doesn't invalidate the (slow) dependency layer on every rebuild.
-COPY pyproject.toml README.md ./
-RUN uv pip install --system \
-        "fastapi>=0.115" \
-        "uvicorn[standard]>=0.32" \
-        "sqlmodel>=0.0.22" \
-        "jinja2>=3.1" \
-        "python-multipart>=0.0.17" \
-        "pydantic-settings>=2.6" \
-        "httpx>=0.27"
+#
+# The install comes from uv.lock via --frozen, so the image gets exactly the
+# versions the test suite ran against rather than whatever happens to resolve on
+# build day. --no-install-project skips the app itself at this stage: it isn't
+# copied yet, and installing it here would defeat the layer caching.
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --frozen --no-dev --no-install-project
 
 COPY app ./app
+
+# Now that the source is present, install the project itself into the same
+# environment. This layer is cheap because the dependencies are already there.
+RUN uv sync --frozen --no-dev
+
+# uv installs into .venv rather than the system Python, so put it on PATH and
+# the CMD below can call uvicorn directly.
+ENV PATH="/app/.venv/bin:$PATH"
 
 # The database lives on a mounted volume, not in the image.
 ENV DATABASE_URL=sqlite:////data/mealplanner.db

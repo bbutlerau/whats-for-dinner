@@ -1,0 +1,87 @@
+# Builds the container image and publishes it to GitHub Container Registry so the
+# server can pull a prebuilt image instead of cloning the source and building.
+#
+# The test job gates the publish job: a red suite means no new :latest, so the
+# server can never pull a build whose tests didn't pass.
+
+name: Publish image
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Test
+        run: uv run pytest -q
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    # Pull requests get built for the test job above but never published — only
+    # what actually lands on main (or a version tag) becomes a pullable image.
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          # Provided automatically by Actions; no secret to create or rotate.
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Work out the tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          # :latest follows main, :sha-abc1234 pins an exact build for rollback,
+          # and a vX.Y.Z tag additionally publishes :X.Y.Z and :X.Y.
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          # The server is x86, so a single-architecture build keeps CI quick.
+          # Add linux/arm64 here if the app ever needs to run on a Pi or an
+          # ARM instance.
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

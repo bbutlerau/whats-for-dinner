@@ -1,0 +1,13 @@
+# Development override: builds the image from the working tree instead of
+# pulling the published one. Layered on top of docker-compose.yml:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+#
+# Everything else — the port, the volume, the env file — is inherited unchanged.
+
+services:
+  mealplanner:
+    build: .
+    # Without this, the base file's "always" would still reach for GHCR and
+    # overwrite the image just built from local source.
+    pull_policy: build
